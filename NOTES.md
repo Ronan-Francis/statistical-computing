@@ -2,25 +2,53 @@
 
 ---
 
-## DECISION LOGIC: Which Model to Use
+## DECISION LOGIC: Which Model to Use (with R Code)
 
-**Look at the response variable (y) first.**
+***Look at the response variable (y) first.***
 
+**Is y a count (0, 1, 2, 3...)?**
+* **Residual Deviance ≈ Degrees of Freedom → POISSON**
+```R
+model_pois <- glm(y ~ x, data = df, family = "poisson")
+summary(model_pois) # Check: Residual deviance / df.residual
 ```
-Is y a count (0, 1, 2, 3...)?
-  ├── Residual Deviance ≈ Degrees of Freedom → POISSON
-  └── Residual Deviance >> Degrees of Freedom → NEGATIVE BINOMIAL
-
-Is y continuous and strictly positive (e.g. rainfall, hospital stay)?
-  ├── Symmetric → LINEAR MODEL (lm)
-  └── Right-skewed (long tail to the right) → GAMMA GLM
-
-Does the histogram show two or more humps with no group label?
-  └── MIXTURE MODEL (normalmixEM or regmixEM)
-
-Does a scatterplot show two different slopes with no group label?
-  └── MIXTURE OF REGRESSIONS (regmixEM)
+* **Residual Deviance >> Degrees of Freedom → NEGATIVE BINOMIAL**
+```R
+library(MASS)
+model_nb <- glm.nb(y ~ x, data = df)
+summary(model_nb)
 ```
+
+**Is y continuous and strictly positive (e.g. rainfall, hospital stay)?**
+* **Symmetric → LINEAR MODEL (lm)**
+```R
+hist(df$y) # Check for bell shape
+model_lm <- lm(y ~ x, data = df)
+```
+* **Right-skewed (long tail to the right) → GAMMA GLM**
+```R
+# Use family = Gamma with a log link for strictly positive, skewed data
+model_gamma <- glm(y ~ x, data = df, family = Gamma(link = "log"))
+```
+
+**Does the histogram show two or more humps with no group label?**
+* **MIXTURE MODEL (normalmixEM)**
+```R
+library(mixtools)
+# k is the number of 'humps' or components you see
+mix_model <- normalmixEM(df$y, k = 2) 
+plot(mix_model, which = 2)
+```
+
+**Does a scatterplot show two different slopes with no group label?**
+* **MIXTURE OF REGRESSIONS (regmixEM)**
+```R
+library(mixtools)
+# Fits two separate regression lines to the unlabeled data points
+reg_mix <- regmixEM(y ~ x, data = df, k = 2)
+summary(reg_mix)
+```
+
 
 **Overdispersion check for Poisson (always run this):**
 ```r
@@ -32,11 +60,11 @@ summary(fit_pois)$deviance / summary(fit_pois)$df.residual
 
 | Scenario | Model | Paste this text |
 |---|---|---|
-| Count data, deviance ≈ df | Poisson | "The response is a count of independent events. Residual deviance is close to degrees of freedom, indicating no overdispersion. Poisson is appropriate." |
-| Count data, deviance >> df | Neg Binomial | "The residual deviance ([X]) is substantially larger than the degrees of freedom ([X]), indicating overdispersion. Negative Binomial is used instead of Poisson." |
-| Positive, skewed continuous | Gamma | "The response is strictly positive and right-skewed. A Gamma GLM with log link is appropriate." |
-| Two humps in histogram | Mixture | "The distribution appears bimodal, suggesting the presence of latent subpopulations. A Normal mixture model is fitted." |
-| Need to compare models | AIC/BIC/LRT | "Lower AIC/BIC indicates better fit. The model with AIC=[X] is preferred." |
+| Count data, deviance ≈ df | Poisson | ``` The response is a count of independent events. Residual deviance is close to degrees of freedom, indicating no overdispersion. Poisson is appropriate.```|
+| Count data, deviance >> df | Neg Binomial |``` "The residual deviance ([X]) is substantially larger than the degrees of freedom ([X]), indicating overdispersion. Negative Binomial is used instead of Poisson.```|
+| Positive, skewed continuous | Gamma |``` "The response is strictly positive and right-skewed. A Gamma GLM with log link is appropriate. ```|
+| Two humps in histogram | Mixture | ```The distribution appears bimodal, suggesting the presence of latent subpopulations. A Normal mixture model is fitted.``` |
+| Need to compare models | AIC/BIC/LRT | ```Lower AIC/BIC indicates better fit. The model with AIC=[X] is preferred.``` |
 
 ---
 
